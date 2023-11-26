@@ -1,0 +1,1 @@
+// different from a regular Card class, a GameCard holds information relevant to the actual game as its being played.
