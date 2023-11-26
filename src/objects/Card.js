@@ -7,21 +7,32 @@ export class Card extends Phaser.GameObjects.Container {
         super(scene, x, y);
         this.scene = scene;
         this.setPosition(x, y);
+
+        // some physics settings
         this.lighting = lighting || { x: this.scene.cameras.main.width/2, y: 0 }
+        this.raiseHeight = 5;
+        this.shadowSize = 5;
         
         // some visual settings
         this.width = 70;
         this.height = this.width / SETTINGS.cards.aspectRatio;
-        this.raiseHeight = 5;
-        this.shadowSize = 5;
         this.corners = 3;
         this.visibleSide = initiallyVisibleSide;
         this.border = this.width * 0.035;
         this.backsideColor = new Phaser.Display.Color.HexStringToColor(backsideColor ?? '#bada55');
 
-        this.render();
+        // misc
+        this.debug = false;
 
+        // render the card faces and decide which one to show intiially
+        this.render();
         this.showCardSide(this.visibleSide);
+
+        if (this.debug) {
+            this.renderDebuggers();
+
+            this.scene.input.on('update', this.updateDebuggers, this);
+        }
     }
     
     destroy() {
@@ -35,6 +46,18 @@ export class Card extends Phaser.GameObjects.Container {
 
         this.render();
     }
+
+    /**
+     * DEBUGGING & INTERNAL CRAP
+    */
+
+    renderTooltip() {
+
+    }
+
+    renderDebuggers() {
+    }
+
 
     /**
      * DRAWING, RENDERING
@@ -204,7 +227,7 @@ export class Card extends Phaser.GameObjects.Container {
         }}));
     }
 
-    snapTo({ x, y, rotation, onComplete, duration = 125, delay = 0 }, returnTweenData = false) {
+    snapTo({ x, y, rotation, onComplete, duration = 150, delay = 0 }, returnTweenData = false) {
         const tweenData = {
             targets: this,
             rotation: rotation,

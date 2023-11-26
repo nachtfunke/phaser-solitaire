@@ -1,6 +1,7 @@
 import { Scene } from "phaser";
 import { Card } from "../objects/Card";
 import { isValidDestination } from "../utils/isValidDestination";
+import Tooltip from "../objects/utils/Tooltip";
 
 export class GameScene extends Scene {
     constructor() {
@@ -88,7 +89,7 @@ export class GameScene extends Scene {
                         let doDrag = false;
 
                         // if the card is not below the pointer, snap it to it
-                        const pointerThreshold = 30; // allows for a bit of a wiggle room, so that the snapping animation isn't basically always playing
+                        const pointerThreshold = 15; // allows for a bit of a wiggle room, so that the snapping animation isn't basically always playing
             
                         card.on('drag', pointer => {
                             if (pointer.getDistance() > dragThreshold) {
@@ -102,13 +103,10 @@ export class GameScene extends Scene {
                                 if (doDrag) {
                                     // drag the card (updates its position)
                                     this.dragCard(card, pointer).then(() => doDrag = false);
-                                }
-                                
-                                // update the position of the tooltip
-                                this.debug && this.updateToolTipPosition(card, card.tooltip);
 
-                                // update the shadow
-                                card.updateShadow();
+                                    // update the shadow
+                                    card.updateShadow();
+                                }
 
                             } else {
                                 this.gameLocked = false;
@@ -410,42 +408,26 @@ Card ${card.id}
 
     // render a little tooltip for each card, that shows some of its card data
     renderCardToolTip(card) {
-        const container = this.add.container(card.x + card.width / 2 + 20, card.y - card.height / 2);
-        container.setDepth(1);
+        const tooltip = new Tooltip(this, card, 'hello world', {
+            padding: 15,
+            width: 250,
+        });
 
-        const background = this.add.graphics();
-        const renderBackground = (width, height) => {
-            background.clear();
-            background.fillStyle(0x000000);
-            background.fillRoundedRect(0, 0, width, height, 2);
-            background.setAlpha(0.25);
-            background.setDepth(0);
-        }
-        renderBackground(0, 0);
-        container.add(background);
+        this.add.existing(tooltip);
 
-        const text = this.add.text(10, 0, '', { fill: '#000' });
-        text.setFontSize(12);
-        text.setDepth(1);
-        container.add(text);
-
+        // whenever the game updates, also update the tooltip
         this.events.on('update', () => {
-            text.setText(`
-id: ${card.id}
+            const newText = `id: ${card.id}
 x: ${card.x}
 y: ${card.y}
 visible side: ${card.visibleSide}
 shadow position: ${Math.floor(card.shadow.x)}, ${Math.floor(card.shadow.y)}
-            `);
-            renderBackground(text.width + 20, text.height);
+            `;
+            
+            tooltip.update(card, newText);
         });
 
-        return container;
-    }
-
-    updateToolTipPosition(card, toolTip) {
-        toolTip.x = card.x + card.width / 2 + 20;
-        toolTip.y = card.y - card.height / 2;
+        return tooltip;
     }
 
     update() {
