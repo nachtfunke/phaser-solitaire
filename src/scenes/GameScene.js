@@ -86,14 +86,15 @@ export class GameScene extends Scene {
                         const dragThreshold = card.width;
 
                         let doDrag = false;
+
+                        // if the card is not below the pointer, snap it to it
+                        const pointerThreshold = 30; // allows for a bit of a wiggle room, so that the snapping animation isn't basically always playing
             
                         card.on('drag', pointer => {
                             if (pointer.getDistance() > dragThreshold) {
                                 this.gameLocked = true;
-                                
-                                // if the card is not below the pointer, snap it to it
-                                const pointerThreshold = 15; // allows for a bit of a wiggle room, so that the snapping animation isn't basically always playing
-                                
+
+                                // visualize the threshold
                                 if (Math.abs(card.x - pointer.x) > pointerThreshold && Math.abs(card.y - pointer.y) > pointerThreshold) {
                                     card.snapToPointer().then(() => doDrag = true);
                                 }

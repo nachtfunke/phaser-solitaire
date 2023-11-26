@@ -204,20 +204,38 @@ export class Card extends Phaser.GameObjects.Container {
         }}));
     }
 
-    snapToPointer(resetRotation = true, onComplete, returnTweenData = false) {
-        const animationDuration = 125;
-        const animationDelay = 0;
-
+    snapTo({ x, y, rotation, onComplete, duration = 125, delay = 0 }, returnTweenData = false) {
         const tweenData = {
             targets: this,
-            rotation: resetRotation ? 0 : this.rotation,
-            x: this.scene.input.activePointer.x,
-            y: this.scene.input.activePointer.y,
-            ease: 'Power2',
-            duration: animationDuration,
-            delay: animationDelay,
+            rotation: rotation,
+            x,
+            y,
+            ease: Phaser.Math.Easing.Expo.InOut,
+            duration,
+            delay,
             onComplete
         };
+
+        if (returnTweenData) {
+            return tweenData;
+        }
+
+        return new Promise( resolve => this.scene.tweens.add({...tweenData, onComplete: () => {
+            onComplete && onComplete();
+            resolve();
+        }}));
+    }
+
+    snapToPointer({ resetRotation = true, duration, delay, onComplete } = {}, returnTweenData = false) {
+        const tweenData = this.snapTo(
+            { 
+                x: this.scene.input.activePointer.x, 
+                y: this.scene.input.activePointer.y, 
+                rotation: resetRotation ? 0 : this.rotation,
+                onComplete,
+                duration,
+                delay
+            }, true);
 
         if (returnTweenData) {
             return tweenData;
