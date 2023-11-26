@@ -10,6 +10,7 @@ const phaserConfig = {
   type: Phaser.AUTO,
   width: window.innerWidth,
   height: window.innerHeight,
+  pixelArt: true,
   scene: [ BootScene, GameScene ],
 }
 

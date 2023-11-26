@@ -2,6 +2,7 @@ import { Scene } from "phaser";
 import { Card } from "../objects/Card";
 import { isValidDestination } from "../utils/isValidDestination";
 import Tooltip from "../objects/utils/Tooltip";
+import { STYLES } from "../settings/styles";
 
 export class GameScene extends Scene {
     constructor() {
@@ -52,6 +53,9 @@ export class GameScene extends Scene {
             //this.dealCard();
 
             this.dealCards(5).then(cards => {
+                // create a single tooltip for the last card created
+                this.renderCardToolTip(cards[cards.length - 1]);
+
                 cards.forEach(card => {
                     card.setInteractive({
                         draggable: true,
@@ -60,18 +64,19 @@ export class GameScene extends Scene {
 
                     // render a tooltip for each card, that shows its x, y and angle
                     if (this.debug && card.tooltip === undefined ) {
-                        card.tooltip = this.renderCardToolTip(card);
-                        card.tooltip.setAlpha(0);
+                        //card.enableDebug([], true);
+                        //card.tooltip = this.renderCardToolTip(card);
+                        //card.tooltip.setAlpha(0);
                     }
 
                     // hovering
                     // --------------------
                     card.on('pointerover', () => {
-                        this.debug && card.tooltip.setAlpha(1);
+                        //this.debug && card.tooltip.setAlpha(1);
                     });
 
                     card.on('pointerout', () => {
-                        this.debug && card.tooltip.setAlpha(0);
+                        //this.debug && card.disableDebug(['henny']);
                     });
 
 
@@ -92,12 +97,17 @@ export class GameScene extends Scene {
                         const pointerThreshold = 15; // allows for a bit of a wiggle room, so that the snapping animation isn't basically always playing
             
                         card.on('drag', pointer => {
+
                             if (pointer.getDistance() > dragThreshold) {
                                 this.gameLocked = true;
+                                
+                                const pointerOutOfRange = Math.abs(card.x - pointer.x) > pointerThreshold && Math.abs(card.y - pointer.y) > pointerThreshold;
 
-                                // visualize the threshold
-                                if (Math.abs(card.x - pointer.x) > pointerThreshold && Math.abs(card.y - pointer.y) > pointerThreshold) {
+                                // only snap to the pointer, if the card is not already below it, and dragging hasn't already started
+                                if (!card.isDragging && pointerOutOfRange) {
                                     card.snapToPointer().then(() => doDrag = true);
+                                } else {
+                                    doDrag = true;
                                 }
 
                                 if (doDrag) {
@@ -116,7 +126,6 @@ export class GameScene extends Scene {
 
                     card.on('dragend', () => {
                         if (card.isDragging) {
-                            console.log('dragend detected');
                             if (card.z !== 0) {
                                 card.drop().then(() => this.gameLocked = false);
                             } else {
@@ -152,13 +161,15 @@ export class GameScene extends Scene {
                 });
             });
         });
+
+        // TEMPORARY BUTTONS
+        // --------------------
         dealButton.setPosition(this.centerX - dealButton.getBounds().width/2, this.centerY - dealButton.getBounds().height/2);
         this.add.existing(dealButton);
 
         // add a button that will delete all cards
         const deleteButton = this.renderDebugButton('Delete All', () => {
             this.cards.forEach(card => card.destroy());
-            // FIXME: this is not updating the log, but it's fine for now
             this.cards = [];
         });
         deleteButton.setPosition(this.centerX - deleteButton.getBounds().width/2, this.centerY - deleteButton.getBounds().height/2 + dealButton.getBounds().height + 10);
@@ -166,14 +177,23 @@ export class GameScene extends Scene {
         // change the background
         this.cameras.main.setBackgroundColor('#d3d3d3');
 
-        // display a little debug log window
-        this.debug && this.renderCardsLog();
+        // DEBUGGING
+        // --------------------
 
-        // add a little text to the screen, that shows that the game is currently locked.
-        this.gameLockedText = this.add.text(0, 0, 'Game is locked.', { fill: '#000' });
-        this.gameLockedText.setPosition(this.cameras.main.width - this.gameLockedText.width - 20, 0 + 20);
-        this.gameLockedText.setDepth(1);
-        this.gameLockedText.setVisible(false);
+        if (this.debug) {
+            // display a little debug log window
+            this.renderCardsLog();
+
+            // add a little text to the screen, that shows that the game is currently locked.
+            this.gameLockedText = this.add.text(0, 0, 'Game is locked.', {
+                fontFamily: STYLES.debugging.text.fontFamily,
+                fontSize: STYLES.debugging.text.fontSize,
+                color: '#000000',
+            });
+            this.gameLockedText.setPosition(this.cameras.main.width - this.gameLockedText.width - STYLES.spacing.l, STYLES.spacing.l);
+            this.gameLockedText.setDepth(1);
+            this.gameLockedText.setVisible(false);
+        }
     }
 
     /**
@@ -349,20 +369,41 @@ export class GameScene extends Scene {
     renderDebugButton(text, onClick, x, y) {
         const button = this.add.container(x, y);
 
-        const label = this.add.text(0, 0, text, { fill: '#fff' });
-        label.setFontSize(14);
+        // the text
+        const label = this.add.text(0, 0, text, {
+            fontFamily: STYLES.buttons.debugging.text.fontFamily,
+            fontSize: STYLES.buttons.debugging.text.fontSize,
+            color: STYLES.buttons.debugging.text.color,
+        });
+        label.setPadding(STYLES.buttons.debugging.padding);
 
-
+        // the background
         const background = this.add.graphics();
-        background.fillStyle(0x000000);
-        background.fillRoundedRect(0, 0, label.getBounds().width + 15, label.getBounds().height + 15, 5);
-        label.setPadding(7.5);
-        button.add(background);
-        button.add(label);
+        background.fillStyle(STYLES.buttons.debugging.background.color);
+        background.fillRoundedRect(0, 0, label.getBounds().width, label.getBounds().height, STYLES.buttons.debugging.background.borderRadius);
+
+        // the shadow
+        const shadow = this.add.graphics();
+        shadow.fillStyle(0x000000, 0.25);
+        shadow.fillRoundedRect(STYLES.buttons.debugging.shadow.size, STYLES.buttons.debugging.shadow.size, label.getBounds().width - (STYLES.buttons.debugging.shadow.size*2), label.getBounds().height, STYLES.buttons.debugging.background.borderRadius);
+
+        button.add([shadow, background, label ]);
 
         label.setInteractive({
             useHandCursor: true,
         });
+
+        // hovering
+        label.on('pointerover', () => {
+            button.y = button.y + 2;
+            shadow.y = shadow.y - 2;
+        });
+        label.on('pointerout', () => {
+            button.y = button.y - 2;
+            shadow.y = shadow.y + 2;
+        });
+
+
         label.on('pointerup', onClick);
         
         button.setDepth(1);
@@ -370,71 +411,113 @@ export class GameScene extends Scene {
         return button;
     }
     
+    // TODO: this has stopped becoming that useful, because there is now a tooltip for each card
     renderCardsLog() {
         // add a container, in which elements will be positioned relative to
         const container = this.add.container(10, 10);
-        
-        // add a background
-        const background = this.add.graphics();
-        const renderBackground = (width, height) => {
-            background.clear();
-            background.fillStyle(0x000000);
-            background.fillRoundedRect(0, 0, width, height, 2);
-            background.setAlpha(0.25);
-            background.setDepth(0);
-        }
-        renderBackground(0, 0);
-        container.add(background);
+
+        // add a little label to the top
+        const label = this.add.text(0, 0, 'Game Cards log', {
+            fontFamily: STYLES.debugging.text.fontFamily,
+            fontSize: STYLES.debugging.text.fontSize,
+            color: STYLES.debugging.text.color,
+        });
+        label.setPadding(
+            STYLES.debugging.padding,
+            STYLES.debugging.padding,
+            STYLES.debugging.padding,
+            0,
+        );
+
+        const spacingBetween = STYLES.debugging.padding;
 
         // add the actual text
-        const text = this.add.text(10, 0, '', { fill: '#000' });
-        text.setFontSize(12);
-        text.setDepth(1);
-        container.add(text);
+        const text = this.add.text(0, label.height + spacingBetween, null, { 
+            color: STYLES.debugging.text.color,
+            fontFamily: STYLES.debugging.text.fontFamily,
+            fontSize: STYLES.debugging.text.fontSize,
+        });
+        text.setPadding(
+            STYLES.debugging.padding,
+            0,
+            STYLES.debugging.padding,
+            STYLES.debugging.padding,
+        );
+        text.setDepth(10);
+
+        // add a background
+        const backgroundWidth = () => label.getBounds().width < text.getBounds().width ? text.getBounds().width : label.getBounds().width;
+        const backgroundHeight = () => label.getBounds().height + spacingBetween + text.getBounds().height;
+        const background = this.add.graphics();
+        const renderBackground = (width, height) => {
+            console.log(text.getBounds().height, height);
+            background.clear();
+            background.fillStyle(STYLES.debugging.background.color, STYLES.debugging.background.alpha);
+            background.fillRoundedRect(0, 0, width, height, STYLES.debugging.background.borderRadius);
+            background.setDepth(0);
+        }
+        
+        container.add([background, label, text]);
 
         this.events.on('update', () => {
 
             const cards = this.cards.map(card => {
-                return `
-Card ${card.id}
-  visible side: ${card.visibleSide}
-  is being dragged: ${card.isDragging}
+                return `[Card ${card.id}]:
+ ∙ visible side: ${card.visibleSide}
+ ∙ is being dragged: ${card.isDragging}
 `
             }).join('\n');
-            text.setText(cards);
-            renderBackground(cards ? text.width + 20 : 0, cards ? text.height : 0);
+            cards.length ? text.setText(cards) : text.setText('No cards in game yet.');
+            renderBackground(backgroundWidth(), backgroundHeight());
         });
     }
 
-    // render a little tooltip for each card, that shows some of its card data
+    // render a little tooltip for a given card, that shows some of its card data
     renderCardToolTip(card) {
-        const tooltip = new Tooltip(this, card, 'hello world', {
+        this.cardTooltip = new Tooltip(this, card, 'empty', {
             padding: 15,
             width: 250,
         });
+        this.cardTooltip.setAlpha(0);
 
-        this.add.existing(tooltip);
+        this.add.existing(this.cardTooltip);
+    }
 
-        // whenever the game updates, also update the tooltip
-        this.events.on('update', () => {
-            const newText = `id: ${card.id}
-x: ${card.x}
-y: ${card.y}
+    // update the tooltip for a given card
+    updateCardToolTip(card) {
+        const newText = `id: ${card.id}
+x: ${Math.floor(card.x)}
+y: ${Math.floor(card.y)}
 visible side: ${card.visibleSide}
 shadow position: ${Math.floor(card.shadow.x)}, ${Math.floor(card.shadow.y)}
             `;
             
-            tooltip.update(card, newText);
-        });
+        this.cardTooltip.update(card, newText);
 
-        return tooltip;
     }
 
     update() {
-        if (this.gameLocked) {
-            this.gameLockedText.setVisible(true);
-        } else {
-            this.gameLockedText.setVisible(false);
+        if (this.debug) {
+            if (this.gameLocked) {
+                this.gameLockedText.setVisible(true);
+            } else {
+                this.gameLockedText.setVisible(false);
+            }
+
+            this.cards.forEach(card => {
+                // show a tooltip, when hovering a card
+                card.on('pointerover', () => {
+                    this.updateCardToolTip(card);
+                    this.cardTooltip.setAlpha(1);
+                });
+                // also needs to update on pointermove, because pointerover does not trigger during 'drag'
+                card.on('pointermove', () => {
+                    this.updateCardToolTip(card);
+                });
+                card.on('pointerout', () => {
+                    this.cardTooltip.setAlpha(0);
+                });
+            });
         }
     }
 }

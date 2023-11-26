@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { STYLES } from '../../settings/styles';
 
 export default class Tooltip extends Phaser.GameObjects.Container {
     #container;
@@ -41,8 +42,8 @@ export default class Tooltip extends Phaser.GameObjects.Container {
         }
 
         const { width, height } = this.text.getBounds();
-        this.#background.fillStyle(0x000000, 0.7);
-        this.#background.fillRoundedRect(0, 0, width, height, 3);
+        this.#background.fillStyle(STYLES.debugging.background.color, STYLES.debugging.background.alpha);
+        this.#background.fillRoundedRect(0, 0, width, height, STYLES.debugging.background.borderRadius);
     }
 
     #renderText(update = false) {
@@ -51,9 +52,9 @@ export default class Tooltip extends Phaser.GameObjects.Container {
             this.text.setText(this.text);
         } else {
             this.text = this.scene.add.text(0, 0, this.text, {
-                fontFamily: 'Arial',
-                fontSize: 12,
-                color: '#ffffff',
+                fontFamily: STYLES.debugging.text.fontFamily,
+                fontSize: STYLES.debugging.text.fontSize,
+                color: STYLES.debugging.text.color,
                 wordWrap: { width: this.#width, useAdvancedWrap: true },
             });
             this.text.setPadding(this.#padding);
