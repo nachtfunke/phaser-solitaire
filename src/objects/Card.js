@@ -1,12 +1,15 @@
 import Phaser from "phaser";
 import { SETTINGS } from "../settings";
+import Tooltip from "./utils/Tooltip";
 
 // create a Card that can be used in a game
 export class Card extends Phaser.GameObjects.Container {
+    static #debuggers = ['tooltip'];
+    #activeDebuggers = {}; // holds all debuggers that are currently active - not a list of reference for which debuggers to use.
+    
     constructor(scene, x, y, initiallyVisibleSide = 'front', backsideColor, lighting) {
         super(scene, x, y);
         this.scene = scene;
-        this.setPosition(x, y);
 
         // some physics settings
         this.lighting = lighting || { x: this.scene.cameras.main.width/2, y: 0 }
@@ -16,7 +19,7 @@ export class Card extends Phaser.GameObjects.Container {
         // some visual settings
         this.width = 70;
         this.height = this.width / SETTINGS.cards.aspectRatio;
-        this.corners = 3;
+        this.corners = this.width * 0.04; // ~ 3px
         this.visibleSide = initiallyVisibleSide;
         this.border = this.width * 0.035;
         this.backsideColor = new Phaser.Display.Color.HexStringToColor(backsideColor ?? '#bada55');
@@ -29,9 +32,9 @@ export class Card extends Phaser.GameObjects.Container {
         this.showCardSide(this.visibleSide);
 
         if (this.debug) {
-            this.renderDebuggers();
+            this.#renderDebuggers();
 
-            this.scene.input.on('update', this.updateDebuggers, this);
+            //this.scene.input.on('update', this.updateDebuggers, this);
         }
     }
     
@@ -50,12 +53,96 @@ export class Card extends Phaser.GameObjects.Container {
     /**
      * DEBUGGING & INTERNAL CRAP
     */
+    enableDebug(debuggers = [], listenToSceneUpdates = false) {
+        this.debug = true;
 
-    renderTooltip() {
+        debuggers.some(debuggerName => !Card.#isDebugger(debuggerName)) && console.warn(
+            `Card: one or more of the debuggers you specified are not valid. Valid debuggers are: ${Card.#debuggers.join(', ')}.\nYou can also leave the array empty to enable all debuggers.`);
+
+        // only enable the specified debuggers, if they are valid
+        const validDebuggers = debuggers.filter(debuggerName => Card.#isDebugger(debuggerName));
+        validDebuggers && this.#renderDebuggers(validDebuggers);
+
+        if (listenToSceneUpdates) {
+            this.scene.events.on('update', this.updateDebuggers, this);
+        }
+    }
+
+    disableDebug(debuggers = []) {
+        this.debug = false;
+        
+        if (debuggers.length) {
+
+            debuggers.some(debuggerName => !Card.#isDebugger(debuggerName)) && console.warn(`Card: one or more of the debuggers you specified are not valid. Valid debuggers are: ${Card.#debuggers.join(', ')}\nYou can also leave the array empty to disable all debuggers.`);
+
+            const validDebuggers = debuggers.filter(debuggerName => Card.#isDebugger(debuggerName));
+            validDebuggers.forEach(debuggerName => this.#activeDebuggers[debuggerName].destroy());
+        } else {
+            Object.keys(this.#activeDebuggers).forEach(debuggerName => this.#activeDebuggers[debuggerName].destroy());
+        }
+
+        this.scene.events.off('update', this.updateDebuggers, this);
+    }
+
+    static #isDebugger(debuggerName) {
+        return this.#debuggers.includes(debuggerName);
+    }
+
+    #getTooltipText() {
+        return [
+            `id: ${this.id}`,
+            `x: ${Math.round(this.x)}`,
+            `y: ${Math.round(this.y)}`,
+            `z: ${Math.round(this.z)}`,
+            `rotation: ${Math.round(this.rotation)}`,
+            `visible side: ${this.visibleSide}`,
+        ].join('\n');
+    }
+
+    #renderTooltip() {
+        this.#activeDebuggers['tooltip'] = new Tooltip(this.scene, this, this.#getTooltipText());
+
+        this.add(this.#activeDebuggers['tooltip']);
 
     }
 
-    renderDebuggers() {
+    #updateTooltip() {
+        this.#activeDebuggers['tooltip'].update(this, this.#getTooltipText());
+    }
+
+    #renderDebuggers(debuggers = []) {
+        // only render & handle the specified debuggers
+        if (debuggers.length) {
+            debuggers.forEach(debuggerName => {
+                switch (debuggerName) {
+                    case 'tooltip':
+                        this.#renderTooltip();
+                        break;
+                }
+            });
+        // if nothing else was specified, render them all
+        } else {
+            this.#renderTooltip();
+        }
+    }
+
+    /**
+     * updates all debuggers that are currently active
+     */
+    updateDebuggers() {
+        // only update the specified debuggers
+        if (this.#activeDebuggers.length) {
+            debuggers.forEach(debuggerName => {
+                switch (debuggerName) {
+                    case 'tooltip':
+                        this.#updateTooltip();
+                        break;
+                }
+            });
+        // if nothing else was specified, update them all
+        } else {
+            this.#updateTooltip();
+        }
     }
 
 
