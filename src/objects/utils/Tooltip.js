@@ -97,4 +97,9 @@ export default class Tooltip extends Phaser.GameObjects.Container {
         // Update the background to fit the new text
         this.#renderBackground();
     }
+
+    destroy() {
+        this.#container.destroy();
+        super.destroy();
+    }
 }
