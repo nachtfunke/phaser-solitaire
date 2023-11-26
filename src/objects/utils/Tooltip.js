@@ -26,7 +26,7 @@ export default class Tooltip extends Phaser.GameObjects.Container {
 
         this.#render();
 
-        this.setDepth(2);
+        this.#container.setDepth(this.#objectAttachedTo.depth + 1);
 
         this.scene.add.existing(this);
     }
@@ -83,6 +83,8 @@ export default class Tooltip extends Phaser.GameObjects.Container {
     update(objectAttachedTo, newText) {
         // Update the reference to the attached object
         this.#objectAttachedTo = objectAttachedTo;
+
+        this.#container.setDepth(this.#objectAttachedTo.depth + 1);
 
         // Update the position of the container
         this.#resetContainerPosition();
