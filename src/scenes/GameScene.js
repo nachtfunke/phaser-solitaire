@@ -9,7 +9,6 @@ export class GameScene extends Scene {
         super({ key: "GameScene" });
 
         this.cards = []; // keeps track of all the cards in game
-        this.cardsBeingDragged = []; // keeps track of all the cards that are currently being dragged
         this.gameLocked = false; // should be set, if a process, like an animation, is currently running, and the game should not be interacted with
         this.debug = true; // if true, some debug information will be displayed on the screen
     }
@@ -61,112 +60,34 @@ export class GameScene extends Scene {
             }
 
             //this.dealCard();
+            //this.cards[this.cards.length - 1].enableDrag();
 
             this.dealCards(5).then(cards => {
                 // create a single tooltip for the last card created
                 this.renderCardToolTip(cards[cards.length - 1]);
 
                 cards.forEach(card => {
-                    card.setInteractive({
-                        draggable: true,
-                        useHandCursor: true,
-                    });
-
-                    // render a tooltip for each card, that shows its x, y and angle
-                    if (this.debug && card.tooltip === undefined ) {
-                        //card.enableDebug([], true);
-                        //card.tooltip = this.renderCardToolTip(card);
-                        //card.tooltip.setAlpha(0);
-                    }
-
-                    // hovering
-                    // --------------------
-                    card.on('pointerover', () => {
-                        //this.debug && card.tooltip.setAlpha(1);
-                    });
-
-                    card.on('pointerout', () => {
-                        //this.debug && card.disableDebug(['henny']);
-                    });
-
-
-                    // dragging
-                    // --------------------
-                    card.on('dragstart', pointer => { // this is called, when the card is being dragged, but also fires with 'pointerdown'
-        
-                        // make sure, only one card is being dragged at a time
-                        this.cards.forEach(card => card.setDepth(0));
-                        card.setDepth(2);
-
-                        // only assume dragging, when the card has been dragged for at least 30px
-                        const dragThreshold = card.width;
-
-                        let doDrag = false;
-
-                        // if the card is not below the pointer, snap it to it
-                        const pointerThreshold = 15; // allows for a bit of a wiggle room, so that the snapping animation isn't basically always playing
-            
-                        card.on('drag', pointer => {
-
-                            if (pointer.getDistance() > dragThreshold) {
-                                this.gameLocked = true;
-                                
-                                const pointerOutOfRange = Math.abs(card.x - pointer.x) > pointerThreshold && Math.abs(card.y - pointer.y) > pointerThreshold;
-
-                                // only snap to the pointer, if the card is not already below it, and dragging hasn't already started
-                                if (!card.isDragging && pointerOutOfRange) {
-                                    card.snapToPointer().then(() => doDrag = true);
-                                } else {
-                                    doDrag = true;
-                                }
-
-                                if (doDrag) {
-                                    // drag the card (updates its position)
-                                    this.dragCard(card, pointer).then(() => doDrag = false);
-
-                                    // update the shadow
-                                    card.updateShadow();
-                                }
-
-                            } else {
-                                this.gameLocked = false;
-                            }
-                        })
-                    });
-
-                    card.on('dragend', () => {
-                        if (card.isDragging) {
-                            if (card.z !== 0) {
-                                card.drop().then(() => this.gameLocked = false);
-                            } else {
-                                this.gameLocked = false;
-                            }
+                    card.enableDrag(
+                        {},
+                        () => {
+                            // on drag start
+                            // --------------------
+                            // set the depth of the card to the highest, so it is always on top
+                            this.cards.forEach(c => {
+                                c.setDepth(card.depth - 1);
+                            });
+                            card.setDepth(this.cards.length);
                         }
-                    });
-
+                    );
 
                     // clicking
                     // --------------------
-                    const cardClickThreshold = 225;
 
-                    card.on('pointerdown', () => {
-                        if (!card.isDragging & !this.gameLocked) {
-                            this.gameLocked = true;
-
-                            card.raise().then(() => {
-                                card.off('pointerup');
-
-                                card.on('pointerup', pointer => {
-                                    // only assume a click, if the card was held for less than 225ms
-                                    if (pointer.getDuration() < cardClickThreshold) {
-                                        console.log('click detected');
-                                        card.flip(() => card.drop().then(() => this.gameLocked = false));
-                                    } else {
-                                        card.drop().then(() => this.gameLocked = false);
-                                    }
-                                });
-                            });
-                        }
+                    card.onClick(() => {
+                        this.cards.forEach(c => {
+                            c.setDepth(card.depth - 1);
+                        });
+                        card.flip();
                     });
                 });
             });
@@ -191,6 +112,9 @@ export class GameScene extends Scene {
         if (this.debug) {
             // display a little debug log window
             this.renderCardsLog();
+
+            // show a tooltip that will move to each card, when hovering it
+            this.renderCardToolTip();
 
             // add a little text to the screen, that shows that the game is currently locked.
             this.gameLockedText = this.add.text(0, 0, 'Game is locked.', {
@@ -239,36 +163,8 @@ export class GameScene extends Scene {
     }
 
     /**
-     * CARD INTERACTION
+     * CARD INTERACTIONS
      */
-    dragCard(card, pointer) {
-        card.isDragging = true;
-        this.cardsBeingDragged.push(card);
-
-        // get the cursor offset from the center of the card
-        const offsetX = pointer.x - card.x;
-        const offsetY = pointer.y - card.y;
-
-        // update the position of the card
-        card.x = pointer.x;
-        card.y = pointer.y;
-
-        // TODO: alow the card to emit an effect, like a shadow or a glowing outline, when it is being dragged
-        // TODO: emit an event when a card is being dragged
-
-        return new Promise(resolve => {
-            this.input.on('pointerup', () => {
-                this.input.removeAllListeners('pointermove');
-
-                card.setDepth(0);
-    
-                card.isDragging = false;
-                this.cardsBeingDragged = this.cardsBeingDragged.filter(c => c !== card);
-
-                resolve();
-            });
-        });
-    }
 
     /**
      * CARD ANIMATIONS
@@ -471,7 +367,7 @@ export class GameScene extends Scene {
             const cards = this.cards.map(card => {
                 return `[Card ${card.id}]:
  ∙ visible side: ${card.visibleSide}
- ∙ is being dragged: ${card.isDragging}
+ ∙ is being dragged: ${card.getIsBeingDragged()}
 `
             }).join('\n');
             cards.length ? text.setText(cards) : text.setText('No cards in game yet.');
@@ -480,8 +376,8 @@ export class GameScene extends Scene {
     }
 
     // render a little tooltip for a given card, that shows some of its card data
-    renderCardToolTip(card) {
-        this.cardTooltip = new Tooltip(this, card, 'empty', {
+    renderCardToolTip() {
+        this.cardTooltip = new Tooltip(this, { x: 0, y: 0 }, '', {
             padding: 15,
             width: 250,
         });
@@ -492,15 +388,8 @@ export class GameScene extends Scene {
 
     // update the tooltip for a given card
     updateCardToolTip(card) {
-        const newText = `id: ${card.id}
-x: ${Math.floor(card.x)}
-y: ${Math.floor(card.y)}
-visible side: ${card.visibleSide}
-shadow position: ${Math.floor(card.shadow.x)}, ${Math.floor(card.shadow.y)}
-            `;
-            
+        const newText = card.getTooltipText();
         this.cardTooltip.update(card, newText);
-
     }
 
     update() {
