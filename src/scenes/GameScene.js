@@ -42,6 +42,16 @@ export class GameScene extends Scene {
             brown: '#edc55c',
             pink: '#ed5c9c',
         }
+
+        // change the background
+        this.cameras.main.setBackgroundColor('#d3d3d3');
+
+        // add a container into the middle of the screen, that can hold UI Elements
+        // TODO: find out how to dynamically adapt positioning of elements within containers after they have been added
+        // will hold references to some containers that can be used to insert UI elements into
+        this.containers = {};
+        this.containers.center = this.add.container(this.centerX, this.centerY);
+        this.containers.bottomLeft = this.add.container(0, this.cameras.main.height);
         
         // add a little button
         const dealButton = this.renderDebugButton('Deal 5', () => {
@@ -173,9 +183,7 @@ export class GameScene extends Scene {
             this.cards = [];
         });
         deleteButton.setPosition(this.centerX - deleteButton.getBounds().width/2, this.centerY - deleteButton.getBounds().height/2 + dealButton.getBounds().height + 10);
-
-        // change the background
-        this.cameras.main.setBackgroundColor('#d3d3d3');
+        this.add.existing(deleteButton);
 
         // DEBUGGING
         // --------------------
@@ -446,11 +454,10 @@ export class GameScene extends Scene {
         text.setDepth(10);
 
         // add a background
-        const backgroundWidth = () => label.getBounds().width < text.getBounds().width ? text.getBounds().width : label.getBounds().width;
+        const backgroundWidth = () => Math.max(label.getBounds().width, text.getBounds().width);
         const backgroundHeight = () => label.getBounds().height + spacingBetween + text.getBounds().height;
         const background = this.add.graphics();
         const renderBackground = (width, height) => {
-            console.log(text.getBounds().height, height);
             background.clear();
             background.fillStyle(STYLES.debugging.background.color, STYLES.debugging.background.alpha);
             background.fillRoundedRect(0, 0, width, height, STYLES.debugging.background.borderRadius);
