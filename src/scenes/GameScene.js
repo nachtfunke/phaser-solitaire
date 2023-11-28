@@ -10,7 +10,8 @@ export class GameScene extends Scene {
 
         this.cards = []; // keeps track of all the cards in game
         this.gameLocked = false; // should be set, if a process, like an animation, is currently running, and the game should not be interacted with
-        this.debug = true; // if true, some debug information will be displayed on the screen
+        this.debug = false; // if true, some debug information will be displayed on the screen
+        this.debuggers = {} // keeps track of all the debuggers that are currently active
     }
     
     create() {
@@ -95,6 +96,8 @@ export class GameScene extends Scene {
 
         // TEMPORARY BUTTONS
         // --------------------
+        
+        // add a button to deal some cards
         dealButton.setPosition(this.centerX - dealButton.getBounds().width/2, this.centerY - dealButton.getBounds().height/2);
         this.add.existing(dealButton);
 
@@ -106,25 +109,17 @@ export class GameScene extends Scene {
         deleteButton.setPosition(this.centerX - deleteButton.getBounds().width/2, this.centerY - deleteButton.getBounds().height/2 + dealButton.getBounds().height + 10);
         this.add.existing(deleteButton);
 
+        // add a button that enables/disables debug mode
+        const debugButton = this.renderDebugButton('Toggle Debug', () => {
+            this.#toggleDebug();
+        });
+        debugButton.setPosition(this.centerX - debugButton.getBounds().width/2, this.centerY - debugButton.getBounds().height/2 + dealButton.getBounds().height + deleteButton.getBounds().height + 20);
+
         // DEBUGGING
         // --------------------
 
         if (this.debug) {
-            // display a little debug log window
-            this.renderCardsLog();
-
-            // show a tooltip that will move to each card, when hovering it
-            this.renderCardToolTip();
-
-            // add a little text to the screen, that shows that the game is currently locked.
-            this.gameLockedText = this.add.text(0, 0, 'Game is locked.', {
-                fontFamily: STYLES.debugging.text.fontFamily,
-                fontSize: STYLES.debugging.text.fontSize,
-                color: '#000000',
-            });
-            this.gameLockedText.setPosition(this.cameras.main.width - this.gameLockedText.width - STYLES.spacing.l, STYLES.spacing.l);
-            this.gameLockedText.setDepth(1);
-            this.gameLockedText.setVisible(false);
+            this.#enableDebug();
         }
     }
 
@@ -270,6 +265,40 @@ export class GameScene extends Scene {
      * LOGGING & MISC
      */
     // render a little field that keeps track of the cards that exist on the field currently, and their flip state
+    #enableDebug() {
+        // display a little debug log window
+        this.renderCardsLog();
+
+        // show a tooltip that will move to each card, when hovering it
+        this.renderCardToolTip();
+
+        // add a little text to the screen, that shows that the game is currently locked.
+        this.debuggers.gameLockedText = this.add.text(0, 0, 'Game is locked.', {
+            fontFamily: STYLES.debugging.text.fontFamily,
+            fontSize: STYLES.debugging.text.fontSize,
+            color: '#000000',
+        });
+        this.debuggers.gameLockedText.setPosition(this.cameras.main.width - this.debuggers.gameLockedText.width - STYLES.spacing.l, STYLES.spacing.l);
+        this.debuggers.gameLockedText.setDepth(1);
+        this.debuggers.gameLockedText.setVisible(false);
+
+        this.debug = true;
+    }
+    
+    #disableDebug() {
+        Object.keys(this.debuggers).forEach(debuggerName => this.debuggers[debuggerName].destroy());
+
+        this.debug = false;
+    }
+
+    #toggleDebug() {
+        if (this.debug) {
+            this.#disableDebug();
+        } else {
+            this.#enableDebug();
+        }
+    }
+
     renderDebugButton(text, onClick, x, y) {
         const button = this.add.container(x, y);
 
@@ -308,7 +337,11 @@ export class GameScene extends Scene {
         });
 
 
-        label.on('pointerup', onClick);
+        label.on('pointerup', () => {
+            if (!this.gameLocked) {
+                return onClick();
+            }
+        });
         
         button.setDepth(1);
         
@@ -318,7 +351,7 @@ export class GameScene extends Scene {
     // TODO: this has stopped becoming that useful, because there is now a tooltip for each card
     renderCardsLog() {
         // add a container, in which elements will be positioned relative to
-        const container = this.add.container(10, 10);
+        this.debuggers.cardsLog = this.add.container(10, 10);
 
         // add a little label to the top
         const label = this.add.text(0, 0, 'Game Cards log', {
@@ -360,7 +393,7 @@ export class GameScene extends Scene {
             background.setDepth(0);
         }
         
-        container.add([background, label, text]);
+        this.debuggers.cardsLog.add([background, label, text]);
 
         this.events.on('update', () => {
 
@@ -377,41 +410,41 @@ export class GameScene extends Scene {
 
     // render a little tooltip for a given card, that shows some of its card data
     renderCardToolTip() {
-        this.cardTooltip = new Tooltip(this, { x: 0, y: 0 }, '', {
+        this.debuggers.cardTooltip = new Tooltip(this, { x: 0, y: 0 }, '', {
             padding: 15,
             width: 250,
         });
-        this.cardTooltip.setAlpha(0);
+        this.debuggers.cardTooltip.setAlpha(0);
 
-        this.add.existing(this.cardTooltip);
+        this.add.existing(this.debuggers.cardTooltip);
     }
 
     // update the tooltip for a given card
     updateCardToolTip(card) {
         const newText = card.getTooltipText();
-        this.cardTooltip.update(card, newText);
+        this.debuggers.cardTooltip.update(card, newText);
     }
 
     update() {
         if (this.debug) {
             if (this.gameLocked) {
-                this.gameLockedText.setVisible(true);
+                this.debuggers.gameLockedText.setVisible(true);
             } else {
-                this.gameLockedText.setVisible(false);
+                this.debuggers.gameLockedText.setVisible(false);
             }
 
             this.cards.forEach(card => {
                 // show a tooltip, when hovering a card
                 card.on('pointerover', () => {
                     this.updateCardToolTip(card);
-                    this.cardTooltip.setAlpha(1);
+                    this.debuggers.cardTooltip.setAlpha(1);
                 });
                 // also needs to update on pointermove, because pointerover does not trigger during 'drag'
                 card.on('pointermove', () => {
                     this.updateCardToolTip(card);
                 });
                 card.on('pointerout', () => {
-                    this.cardTooltip.setAlpha(0);
+                    this.debuggers.cardTooltip.setAlpha(0);
                 });
             });
         }
