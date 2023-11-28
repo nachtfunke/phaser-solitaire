@@ -394,7 +394,6 @@ export class Card extends Phaser.GameObjects.Container {
     }
 
     snapTo({ x, y, rotation, onComplete, duration = 350, delay = 0 }, returnTweenData = false) {
-        console.log('snapto called');
         const onCompleteCallback = () => {
             this.#isMoving = false;
             this.#isAnimating = false;
