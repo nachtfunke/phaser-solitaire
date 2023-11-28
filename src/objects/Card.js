@@ -394,12 +394,17 @@ export class Card extends Phaser.GameObjects.Container {
     }
 
     snapTo({ x, y, rotation, onComplete, duration = 350, delay = 0 }, returnTweenData = false) {
+        console.log('snapto called');
         const onCompleteCallback = () => {
             this.#isMoving = false;
             this.#isAnimating = false;
             
             onComplete && onComplete();
         }
+
+        const targetX = this.scene.input.activePointer.x;
+        const targetY = this.scene.input.activePointer.y;
+        const targetRotation = rotation;
 
         const tweenData = {
             targets: this,
@@ -424,22 +429,10 @@ export class Card extends Phaser.GameObjects.Container {
         }
 
         return new Promise( resolve => {
-            // check if there is already a tween running - which is likely, because this function will be called on every drag event. So everytime the pointer moves.
-            if (this.#runningTweens.length) {
-                // if there is, update the target values of the tween
-                const lastTween = this.#runningTweens[this.#runningTweens.length - 1];
-                lastTween.updateTo('x', targetX);
-                lastTween.updateTo('y', targetY);
-                lastTween.updateTo('rotation', targetRotation);
-            } else {
-                // if there isn't, create a new tween and add it to the running tweens
-                this.#runningTweens.push(this.scene.tweens.add({...tweenData, onComplete: () => {
-                    onCompleteCallback();
-                    // this will only fire, when the tween has actually finished. So removing this tween from the running tweens is safe.
-                    this.#runningTweens.pop();
-                    resolve();
-                }}));
-            }
+            this.scene.tweens.add({...tweenData, onComplete: () => {
+                onCompleteCallback();
+                resolve();
+            }});
         });
     }
 
@@ -577,7 +570,7 @@ export class Card extends Phaser.GameObjects.Container {
             alphaTolerance: 1
         });
 
-        const dragThreshold = this.width/1.5;
+        const dragThreshold = this.width;
         const pointerThreshold = 15;
         const pointerTooFarThreshold = this.width * 2;
         const pointerClickThreshold = 125;
@@ -621,13 +614,11 @@ export class Card extends Phaser.GameObjects.Container {
 
             // if there are any animations going on, don't do anything
             if (this.#isAnimating && !this.#isChangingAltitude && !this.#isElevated) {
-                console.log('cannot drag, because the card is currently animating');
                 return false;
             }
 
             // only consider this interation a dragging intention, if the pointer has moved far enough away from the card
             if (pointer.getDistance() < dragThreshold) {
-                console.log('cannot drag, because the pointer is too close to the card');
                 return false;
             }
 
@@ -659,12 +650,14 @@ export class Card extends Phaser.GameObjects.Container {
         });
 
         this.on('dragend', pointer => {
+            const dragTooShort = pointer.getDuration() < 275;
+
             if (this.preventDragging) {
                 return false;
             }
 
             // this check for whether this is truly a dragend is necessary, because the dragend event will also fire for a pointerup event...
-            if (this.#isBeingDragged && this.#isElevated && !this.#isChangingAltitude) {
+            if (!dragTooShort && this.#isBeingDragged && this.#isElevated && !this.#isChangingAltitude) {
                 this.#isBeingDragged = false;
                 
                 // drop the card again
