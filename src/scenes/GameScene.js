@@ -98,7 +98,6 @@ export class GameScene extends Scene {
         // --------------------
         
         // add a button to deal some cards
-        dealButton.setPosition(this.centerX - dealButton.getBounds().width/2, this.centerY - dealButton.getBounds().height/2);
         this.add.existing(dealButton);
 
         // add a button that will delete all cards
@@ -106,14 +105,21 @@ export class GameScene extends Scene {
             this.cards.forEach(card => card.destroy());
             this.cards = [];
         });
-        deleteButton.setPosition(this.centerX - deleteButton.getBounds().width/2, this.centerY - deleteButton.getBounds().height/2 + dealButton.getBounds().height + 10);
         this.add.existing(deleteButton);
+
+        // position the buttons in the center bottom
+        const dealDeleteButtonsWidth = dealButton.getBounds().width + deleteButton.getBounds().width + STYLES.spacing.m + STYLES.spacing.m;
+        dealButton.setPosition(this.centerX - dealDeleteButtonsWidth / 2, this.cameras.main.height - dealButton.getBounds().height - STYLES.spacing.m);
+        deleteButton.setPosition(this.centerX - dealDeleteButtonsWidth / 2 + dealButton.getBounds().width + STYLES.spacing.m, this.cameras.main.height - deleteButton.getBounds().height - STYLES.spacing.m);
 
         // add a button that enables/disables debug mode
         const debugButton = this.renderDebugButton('Toggle Debug', () => {
             this.#toggleDebug();
         });
-        debugButton.setPosition(this.centerX - debugButton.getBounds().width/2, this.centerY - debugButton.getBounds().height/2 + dealButton.getBounds().height + deleteButton.getBounds().height + 20);
+        debugButton.setPosition(
+            this.locations.bottomRight.x - debugButton.getBounds().width - STYLES.spacing.m,
+            this.locations.bottomRight.y - debugButton.getBounds().height - STYLES.spacing.m
+        );
 
         // DEBUGGING
         // --------------------
@@ -266,8 +272,10 @@ export class GameScene extends Scene {
      */
     // render a little field that keeps track of the cards that exist on the field currently, and their flip state
     #enableDebug() {
+        this.debug = true;
+        
         // display a little debug log window
-        this.renderCardsLog();
+        //this.renderCardsLog();
 
         // show a tooltip that will move to each card, when hovering it
         this.renderCardToolTip();
@@ -281,14 +289,12 @@ export class GameScene extends Scene {
         this.debuggers.gameLockedText.setPosition(this.cameras.main.width - this.debuggers.gameLockedText.width - STYLES.spacing.l, STYLES.spacing.l);
         this.debuggers.gameLockedText.setDepth(1);
         this.debuggers.gameLockedText.setVisible(false);
-
-        this.debug = true;
     }
     
     #disableDebug() {
-        Object.keys(this.debuggers).forEach(debuggerName => this.debuggers[debuggerName].destroy());
-
         this.debug = false;
+        
+        Object.keys(this.debuggers).forEach(debuggerName => this.debuggers[debuggerName].destroy());
     }
 
     #toggleDebug() {
@@ -422,7 +428,7 @@ export class GameScene extends Scene {
     // update the tooltip for a given card
     updateCardToolTip(card) {
         const newText = card.getTooltipText();
-        this.debuggers.cardTooltip.update(card, newText);
+        this.debug && this.debuggers.cardTooltip.update(card, newText);
     }
 
     update() {
