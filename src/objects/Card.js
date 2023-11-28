@@ -423,10 +423,24 @@ export class Card extends Phaser.GameObjects.Container {
             return tweenData;
         }
 
-        return new Promise( resolve => this.scene.tweens.add({...tweenData, onComplete: () => {
-            onCompleteCallback();
-            resolve();
-        }}));
+        return new Promise( resolve => {
+            // check if there is already a tween running - which is likely, because this function will be called on every drag event. So everytime the pointer moves.
+            if (this.#runningTweens.length) {
+                // if there is, update the target values of the tween
+                const lastTween = this.#runningTweens[this.#runningTweens.length - 1];
+                lastTween.updateTo('x', targetX);
+                lastTween.updateTo('y', targetY);
+                lastTween.updateTo('rotation', targetRotation);
+            } else {
+                // if there isn't, create a new tween and add it to the running tweens
+                this.#runningTweens.push(this.scene.tweens.add({...tweenData, onComplete: () => {
+                    onCompleteCallback();
+                    // this will only fire, when the tween has actually finished. So removing this tween from the running tweens is safe.
+                    this.#runningTweens.pop();
+                    resolve();
+                }}));
+            }
+        });
     }
 
     snapToPointer({ resetRotation = true, duration, delay, onComplete } = {}, returnTweenData = false) {
